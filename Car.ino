@@ -12,6 +12,8 @@
 #define SERVO_RIGHT 135
 #define CONTROLED 1
 #define AUTO 2
+#define RETRACE 3
+#define MAX_ACTIONS 100
 
 Servo myservo;
 
@@ -21,6 +23,14 @@ AF_DCMotor motor1(1, MOTOR12_1KHZ);
 AF_DCMotor motor2(2, MOTOR12_1KHZ);
 AF_DCMotor motor3(3, MOTOR34_1KHZ);
 AF_DCMotor motor4(4, MOTOR34_1KHZ);
+
+typedef struct {
+  char command;
+  int speed;
+  int activation_time;  
+} action;
+
+float speed_factor_diagonal_move = 0.5;
 
 char command;
 int controled_speed = MAX_SPEED / 2;
@@ -32,54 +42,80 @@ int mode = CONTROLED;
 int threshlod_distance = 25;
 int time_to_turn = 850;
 
+action actions[MAX_ACTIONS];
+int action_index = 0;
+
 void setup() {
   myservo.attach(9);  // servo2
   Serial.begin(9600);
-//  mode = AUTO;
 }
 
 void loop() {
   if (Serial.available() > 0) {
     command = Serial.read();
     
-    decodeComand();
+    decodeCommand();
   }
   if (mode == AUTO) {
     autoControl();
   }
 }
 
-void decodeComand()
+void decodeCommand()
 {
   switch (command) {
     case 'F':
       mode = CONTROLED;
+      actions[action_index++] = {'B', controled_speed, 50};
       forward(controled_speed);
       break;
     case 'B':
       mode = CONTROLED;
-      back(controled_speed);
+      actions[action_index++] = {'F', controled_speed, 50};
+      backard(controled_speed);
       break;
     case 'L':
       mode = CONTROLED;
+      actions[action_index++] = {'R', controled_speed, 50};
       left(controled_speed);
       break;
     case 'R':
       mode = CONTROLED;
+      actions[action_index++] = {'L', controled_speed, 50};
       right(controled_speed);
+      break;
+    case 'G':
+      mode = CONTROLED;
+      actions[action_index++] = {'I', controled_speed, 50};
+      forwardLeft(controled_speed);
+      break;
+    case 'I':
+      mode = CONTROLED;
+      actions[action_index++] = {'G', controled_speed, 50};
+      forwardRight(controled_speed);
+      break;
+    case 'H':
+      mode = CONTROLED;
+      actions[action_index++] = {'J', controled_speed, 50};
+      backwardLeft(controled_speed);
+      break;
+    case 'J':
+      mode = CONTROLED;
+      actions[action_index++] = {'H', controled_speed, 50};
+      backwardRight(controled_speed);
       break;
     case 'S':
       if (mode == CONTROLED)
         Stop();
       break;
-    case 'U':
+    case 'W':
       mode = AUTO;
       myservo.write(0);
       delay(500);
       myservo.write(SERVO_INIT);
       delay(500);
       break;
-    case 'u':
+    case 'w':
       mode = CONTROLED;
       break;
     case 'q':
@@ -100,7 +136,7 @@ void autoControl()
   {
     Stop();
     delay(100);
-    back(auto_speed);
+    backard(auto_speed);
     delay(300);
     Stop();
     delay(200);
@@ -158,60 +194,73 @@ int readPing() {
 
 void forward(int my_speed)
 {
-  motor1.setSpeed(my_speed); //Define maximum velocity
-  motor1.run(FORWARD);  //rotate the motor clockwise
-  motor2.setSpeed(my_speed); //Define maximum velocity
-  motor2.run(FORWARD);  //rotate the motor clockwise
-  motor3.setSpeed(my_speed); //Define maximum velocity
-  motor3.run(FORWARD);  //rotate the motor clockwise
-  motor4.setSpeed(my_speed); //Define maximum velocity
-  motor4.run(FORWARD);  //rotate the motor clockwise
+  runMotorWithSpeed(&motor1, FORWARD, my_speed);
+  runMotorWithSpeed(&motor2, FORWARD, my_speed);
+  runMotorWithSpeed(&motor3, FORWARD, my_speed);
+  runMotorWithSpeed(&motor4, FORWARD, my_speed);
 }
 
-void back(int my_speed)
+void backard(int my_speed)
 {
-  motor1.setSpeed(my_speed); //Define maximum velocity
-  motor1.run(BACKWARD); //rotate the motor anti-clockwise
-  motor2.setSpeed(my_speed); //Define maximum velocity
-  motor2.run(BACKWARD); //rotate the motor anti-clockwise
-  motor3.setSpeed(my_speed); //Define maximum velocity
-  motor3.run(BACKWARD); //rotate the motor anti-clockwise
-  motor4.setSpeed(my_speed); //Define maximum velocity
-  motor4.run(BACKWARD); //rotate the motor anti-clockwise
+  runMotorWithSpeed(&motor1, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor2, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor3, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor4, BACKWARD, my_speed);
 }
 
 void left(int my_speed)
 {
-  motor1.setSpeed(my_speed); //Define maximum velocity
-  motor1.run(BACKWARD); //rotate the motor anti-clockwise
-  motor2.setSpeed(my_speed); //Define maximum velocity
-  motor2.run(BACKWARD); //rotate the motor anti-clockwise
-  motor3.setSpeed(my_speed); //Define maximum velocity
-  motor3.run(FORWARD);  //rotate the motor clockwise
-  motor4.setSpeed(my_speed); //Define maximum velocity
-  motor4.run(FORWARD);  //rotate the motor clockwise
+  runMotorWithSpeed(&motor1, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor2, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor3, FORWARD, my_speed);
+  runMotorWithSpeed(&motor4, FORWARD, my_speed);
 }
 
 void right(int my_speed)
 {
-  motor1.setSpeed(my_speed); //Define maximum velocity
-  motor1.run(FORWARD);  //rotate the motor clockwise
-  motor2.setSpeed(my_speed); //Define maximum velocity
-  motor2.run(FORWARD);  //rotate the motor clockwise
-  motor3.setSpeed(my_speed); //Define maximum velocity
-  motor3.run(BACKWARD); //rotate the motor anti-clockwise
-  motor4.setSpeed(my_speed); //Define maximum velocity
-  motor4.run(BACKWARD); //rotate the motor anti-clockwise
+  runMotorWithSpeed(&motor1, FORWARD, my_speed);
+  runMotorWithSpeed(&motor2, FORWARD, my_speed);
+  runMotorWithSpeed(&motor3, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor4, BACKWARD, my_speed);
+}
+
+void forwardRight(int my_speed) {
+  runMotorWithSpeed(&motor1, FORWARD, my_speed);
+  runMotorWithSpeed(&motor2, FORWARD, my_speed);
+  runMotorWithSpeed(&motor3, FORWARD, my_speed * speed_factor_diagonal_move);
+  runMotorWithSpeed(&motor4, BACKWARD, my_speed * speed_factor_diagonal_move);
+}
+
+void forwardLeft(int my_speed) {
+  runMotorWithSpeed(&motor1, FORWARD, my_speed * speed_factor_diagonal_move);
+  runMotorWithSpeed(&motor2, BACKWARD, my_speed * speed_factor_diagonal_move);
+  runMotorWithSpeed(&motor3, FORWARD, my_speed);
+  runMotorWithSpeed(&motor4, FORWARD, my_speed);
+}
+
+void backwardRight(int my_speed) {
+  runMotorWithSpeed(&motor1, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor2, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor3, BACKWARD, my_speed * speed_factor_diagonal_move);
+  runMotorWithSpeed(&motor4, FORWARD, my_speed * speed_factor_diagonal_move);
+}
+
+void backwardLeft(int my_speed) {
+  runMotorWithSpeed(&motor1, BACKWARD, my_speed * speed_factor_diagonal_move);
+  runMotorWithSpeed(&motor2, FORWARD, my_speed * speed_factor_diagonal_move);
+  runMotorWithSpeed(&motor3, BACKWARD, my_speed);
+  runMotorWithSpeed(&motor4, BACKWARD, my_speed);
 }
 
 void Stop()
-{
-  motor1.setSpeed(0);  //Define minimum velocity
-  motor1.run(RELEASE); //stop the motor when release the button
-  motor2.setSpeed(0);  //Define minimum velocity
-  motor2.run(RELEASE); //rotate the motor clockwise
-  motor3.setSpeed(0);  //Define minimum velocity
-  motor3.run(RELEASE); //stop the motor when release the button
-  motor4.setSpeed(0);  //Define minimum velocity
-  motor4.run(RELEASE); //stop the motor when release the button
+{  
+  runMotorWithSpeed(&motor1, RELEASE, 0);
+  runMotorWithSpeed(&motor2, RELEASE, 0);
+  runMotorWithSpeed(&motor3, RELEASE, 0);
+  runMotorWithSpeed(&motor4, RELEASE, 0);
+}
+
+void runMotorWithSpeed(AF_DCMotor *motor, int motor_command, int motor_speed) {
+  motor->setSpeed(motor_speed);
+  motor->run(motor_command);
 }
