@@ -19,11 +19,11 @@
 #define CONTROLED 1
 #define AUTO 2
 #define RETRACE 3
-#define MAX_ACTIONS 100
+#define MAX_ACTIONS 200
 
 Servo myservo;
 
-NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE); // NewPing setup of pins and maximum distance.
+NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
 
 AF_DCMotor motor1(1, MOTOR12_1KHZ);
 AF_DCMotor motor2(2, MOTOR12_1KHZ);
@@ -40,13 +40,14 @@ float speed_factor_diagonal_move = 0.5;
 
 char command;
 int controled_speed = MAX_SPEED / 2;
-int auto_speed = 110;
+int auto_speed = MAX_SPEED / 2;
 int distance = 0;
 int distance_left = 0;
 int distance_right = 0;
 int mode = CONTROLED;
 int threshlod_distance = 25;
-int time_to_turn = 850;
+int time_to_turn = 900;
+int time_step = 30;
 
 action actions[MAX_ACTIONS];
 int action_index = 0;
@@ -72,42 +73,42 @@ void decodeCommand(char command)
   switch (command) {
     case 'F':
       mode = CONTROLED;
-      addAction('B', controled_speed, 50);
+      addAction('B', controled_speed, time_step);
       forward(controled_speed);
       break;
     case 'B':
       mode = CONTROLED;
-      addAction('F', controled_speed, 50);
+      addAction('F', controled_speed, time_step);
       backard(controled_speed);
       break;
     case 'L':
       mode = CONTROLED;
-      addAction('R', controled_speed, 50);
+      addAction('R', controled_speed, time_step);
       left(controled_speed);
       break;
     case 'R':
       mode = CONTROLED;
-      addAction('L', controled_speed, 50);
+      addAction('L', controled_speed, time_step);
       right(controled_speed);
       break;
     case 'G':
       mode = CONTROLED;
-      addAction('I', controled_speed, 50);
+      addAction('I', controled_speed, time_step);
       forwardLeft(controled_speed);
       break;
     case 'I':
       mode = CONTROLED;
-      addAction('G', controled_speed, 50);
+      addAction('G', controled_speed, time_step);
       forwardRight(controled_speed);
       break;
     case 'H':
       mode = CONTROLED;
-      addAction('J', controled_speed, 50);
+      addAction('J', controled_speed, time_step);
       backwardLeft(controled_speed);
       break;
     case 'J':
       mode = CONTROLED;
-      addAction('H', controled_speed, 50);
+      addAction('H', controled_speed, time_step);
       backwardRight(controled_speed);
       break;
     case 'S':
