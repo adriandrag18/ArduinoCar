@@ -1,13 +1,7 @@
 #include <Servo.h>
 #include <NewPing.h>
-#include <AFMotor.h>
-#include <SoftwareSerial.h>
-
-#define rxPin 4
-#define txPin 5
-
-// Set up a new SoftwareSerial object
-//SoftwareSerial mySerial =  SoftwareSerial(rxPin, txPin);
+#include "motorControl.h"
+#include "actionStack.h"
 
 #define TRIGGER_PIN  A1  
 #define ECHO_PIN     A0  
@@ -19,24 +13,10 @@
 #define CONTROLED 1
 #define AUTO 2
 #define RETRACE 3
-#define MAX_ACTIONS 200
 
 Servo myservo;
 
 NewPing sonar(TRIGGER_PIN, ECHO_PIN, MAX_DISTANCE);
-
-AF_DCMotor motor1(1, MOTOR12_1KHZ);
-AF_DCMotor motor2(2, MOTOR12_1KHZ);
-AF_DCMotor motor3(3, MOTOR34_1KHZ);
-AF_DCMotor motor4(4, MOTOR34_1KHZ);
-
-typedef struct {
-  char command;
-  int _speed;
-  int duration;  
-} action;
-
-float speed_factor_diagonal_move = 0.5;
 
 char command;
 int controled_speed = MAX_SPEED / 2;
@@ -49,13 +29,11 @@ int threshlod_distance = 25;
 int time_to_turn = 900;
 int time_step = 30;
 
-action actions[MAX_ACTIONS];
-int action_index = 0;
+
 
 void setup() {
   myservo.attach(9);  // servo2
   Serial.begin(9600);
-//  mode = AUTO;
 }
 
 void loop() {
@@ -140,49 +118,38 @@ void decodeCommand(char command)
   }
 }
 
-void addAction(char action_command, int action_speed, int action_duration) {
-  if (action_index >= MAX_ACTIONS)
-    return;
-  action tmp;
-  tmp.command = action_command;
-  tmp._speed = action_speed;
-  tmp.duration = action_duration;
-  actions[action_index++] = tmp;
-}
-
 void retrace() {
   mode = RETRACE;
-  action_index--;
-  while (action_index >= 0){
-    switch (actions[action_index].command) {
+  while (!emtpyActionsStack()){
+    action last_action = popAction();
+    switch (last_action.command) {
       case 'F':
-        forward(actions[action_index]._speed);
+        forward(last_action._speed);
         break;
       case 'B':
-        backard(actions[action_index]._speed);
+        backard(last_action._speed);
         break;
       case 'L':
-        left(actions[action_index]._speed);
+        left(last_action._speed);
         break;
       case 'R':
-        right(actions[action_index]._speed);
+        right(last_action._speed);
         break;
       case 'G':
-        forwardLeft(actions[action_index]._speed);
+        forwardLeft(last_action._speed);
         break;
       case 'I':
-        forwardRight(actions[action_index]._speed);
+        forwardRight(last_action._speed);
         break;
       case 'H':
-        backwardLeft(actions[action_index]._speed);
+        backwardLeft(last_action._speed);
         break;
       case 'J':
-        backwardRight(actions[action_index]._speed);
+        backwardRight(last_action._speed);
         break;
     }
-    delay(actions[action_index--].duration);
+    delay(last_action.duration);
   }
-  action_index++;
   mode = CONTROLED;
 }
 
@@ -246,77 +213,4 @@ int readPing() {
   if(cm==0)
     cm = MAX_DISTANCE;
   return cm;
-}
-
-void forward(int my_speed)
-{
-  runMotorWithSpeed(&motor1, FORWARD, my_speed);
-  runMotorWithSpeed(&motor2, FORWARD, my_speed);
-  runMotorWithSpeed(&motor3, FORWARD, my_speed);
-  runMotorWithSpeed(&motor4, FORWARD, my_speed);
-}
-
-void backard(int my_speed)
-{
-  runMotorWithSpeed(&motor1, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor2, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor3, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor4, BACKWARD, my_speed);
-}
-
-void left(int my_speed)
-{
-  runMotorWithSpeed(&motor1, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor2, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor3, FORWARD, my_speed);
-  runMotorWithSpeed(&motor4, FORWARD, my_speed);
-}
-
-void right(int my_speed)
-{
-  runMotorWithSpeed(&motor1, FORWARD, my_speed);
-  runMotorWithSpeed(&motor2, FORWARD, my_speed);
-  runMotorWithSpeed(&motor3, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor4, BACKWARD, my_speed);
-}
-
-void forwardRight(int my_speed) {
-  runMotorWithSpeed(&motor1, FORWARD, my_speed);
-  runMotorWithSpeed(&motor2, FORWARD, my_speed);
-  runMotorWithSpeed(&motor3, FORWARD, my_speed * speed_factor_diagonal_move);
-  runMotorWithSpeed(&motor4, BACKWARD, my_speed * speed_factor_diagonal_move);
-}
-
-void forwardLeft(int my_speed) {
-  runMotorWithSpeed(&motor1, FORWARD, my_speed * speed_factor_diagonal_move);
-  runMotorWithSpeed(&motor2, BACKWARD, my_speed * speed_factor_diagonal_move);
-  runMotorWithSpeed(&motor3, FORWARD, my_speed);
-  runMotorWithSpeed(&motor4, FORWARD, my_speed);
-}
-
-void backwardRight(int my_speed) {
-  runMotorWithSpeed(&motor1, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor2, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor3, BACKWARD, my_speed * speed_factor_diagonal_move);
-  runMotorWithSpeed(&motor4, FORWARD, my_speed * speed_factor_diagonal_move);
-}
-
-void backwardLeft(int my_speed) {
-  runMotorWithSpeed(&motor1, BACKWARD, my_speed * speed_factor_diagonal_move);
-  runMotorWithSpeed(&motor2, FORWARD, my_speed * speed_factor_diagonal_move);
-  runMotorWithSpeed(&motor3, BACKWARD, my_speed);
-  runMotorWithSpeed(&motor4, BACKWARD, my_speed);
-}
-
-void Stop()
-{  
-  runMotorWithSpeed(&motor1, RELEASE, 0);
-  runMotorWithSpeed(&motor2, RELEASE, 0);
-  runMotorWithSpeed(&motor3, RELEASE, 0);
-  runMotorWithSpeed(&motor4, RELEASE, 0);
-}
-
-void runMotorWithSpeed(AF_DCMotor *motor, int motor_command, int motor_speed) {
-  motor->setSpeed(motor_speed);
-  motor->run(motor_command);
 }
