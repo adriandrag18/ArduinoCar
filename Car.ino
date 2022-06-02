@@ -1,7 +1,13 @@
 #include <Servo.h>
 #include <NewPing.h>
 #include <AFMotor.h>
+#include <SoftwareSerial.h>
 
+#define rxPin 4
+#define txPin 5
+
+// Set up a new SoftwareSerial object
+//SoftwareSerial mySerial =  SoftwareSerial(rxPin, txPin);
 
 #define TRIGGER_PIN  A1  
 #define ECHO_PIN     A0  
@@ -26,8 +32,8 @@ AF_DCMotor motor4(4, MOTOR34_1KHZ);
 
 typedef struct {
   char command;
-  int speed;
-  int activation_time;  
+  int _speed;
+  int duration;  
 } action;
 
 float speed_factor_diagonal_move = 0.5;
@@ -48,65 +54,68 @@ int action_index = 0;
 void setup() {
   myservo.attach(9);  // servo2
   Serial.begin(9600);
+//  mode = AUTO;
 }
 
 void loop() {
   if (Serial.available() > 0) {
     command = Serial.read();
-    
-    decodeCommand();
+    decodeCommand(command);
   }
   if (mode == AUTO) {
     autoControl();
   }
 }
 
-void decodeCommand()
+void decodeCommand(char command)
 {
   switch (command) {
     case 'F':
       mode = CONTROLED;
-      actions[action_index++] = {'B', controled_speed, 50};
+      addAction('B', controled_speed, 50);
       forward(controled_speed);
       break;
     case 'B':
       mode = CONTROLED;
-      actions[action_index++] = {'F', controled_speed, 50};
+      addAction('F', controled_speed, 50);
       backard(controled_speed);
       break;
     case 'L':
       mode = CONTROLED;
-      actions[action_index++] = {'R', controled_speed, 50};
+      addAction('R', controled_speed, 50);
       left(controled_speed);
       break;
     case 'R':
       mode = CONTROLED;
-      actions[action_index++] = {'L', controled_speed, 50};
+      addAction('L', controled_speed, 50);
       right(controled_speed);
       break;
     case 'G':
       mode = CONTROLED;
-      actions[action_index++] = {'I', controled_speed, 50};
+      addAction('I', controled_speed, 50);
       forwardLeft(controled_speed);
       break;
     case 'I':
       mode = CONTROLED;
-      actions[action_index++] = {'G', controled_speed, 50};
+      addAction('G', controled_speed, 50);
       forwardRight(controled_speed);
       break;
     case 'H':
       mode = CONTROLED;
-      actions[action_index++] = {'J', controled_speed, 50};
+      addAction('J', controled_speed, 50);
       backwardLeft(controled_speed);
       break;
     case 'J':
       mode = CONTROLED;
-      actions[action_index++] = {'H', controled_speed, 50};
+      addAction('H', controled_speed, 50);
       backwardRight(controled_speed);
       break;
     case 'S':
       if (mode == CONTROLED)
         Stop();
+      break;
+    case 'U':
+      retrace();
       break;
     case 'W':
       mode = AUTO;
@@ -128,6 +137,52 @@ void decodeCommand()
       }
       break;
   }
+}
+
+void addAction(char action_command, int action_speed, int action_duration) {
+  if (action_index >= MAX_ACTIONS)
+    return;
+  action tmp;
+  tmp.command = action_command;
+  tmp._speed = action_speed;
+  tmp.duration = action_duration;
+  actions[action_index++] = tmp;
+}
+
+void retrace() {
+  mode = RETRACE;
+  action_index--;
+  while (action_index >= 0){
+    switch (actions[action_index].command) {
+      case 'F':
+        forward(actions[action_index]._speed);
+        break;
+      case 'B':
+        backard(actions[action_index]._speed);
+        break;
+      case 'L':
+        left(actions[action_index]._speed);
+        break;
+      case 'R':
+        right(actions[action_index]._speed);
+        break;
+      case 'G':
+        forwardLeft(actions[action_index]._speed);
+        break;
+      case 'I':
+        forwardRight(actions[action_index]._speed);
+        break;
+      case 'H':
+        backwardLeft(actions[action_index]._speed);
+        break;
+      case 'J':
+        backwardRight(actions[action_index]._speed);
+        break;
+    }
+    delay(actions[action_index--].duration);
+  }
+  action_index++;
+  mode = CONTROLED;
 }
 
 void autoControl()
